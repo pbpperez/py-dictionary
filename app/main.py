@@ -1,6 +1,6 @@
 """Módulo de implementación de un diccionario personalizado basado en hash."""
 
-from typing import Generic, List, Optional, TypeVar
+from typing import Any, Generic, List, TypeVar
 
 K = TypeVar("K")
 V = TypeVar("V")
@@ -30,43 +30,56 @@ class Dictionary(Generic[K, V]):
     ) -> None:
         self.capacity: int = initial_capacity
         self.load_factor: float = load_factor
-        self.size: int = 0
-        self.table: List[Optional[Node[K, V]]] = [None] * self.capacity
+        self.length: int = 0
+        self._DELETED: Any = object()
+        self.hash_table: List[Any] = [None] * self.capacity
 
     def __len__(self) -> int:
         """Retorna el número de elementos almacenados."""
-        return self.size
+        return self.length
 
     def _resize(self) -> None:
         """Duplica la capacidad de la tabla y realiza rehash."""
-        old_table = self.table
+        old_table = self.hash_table
         self.capacity *= 2
-        self.table = [None] * self.capacity
-        self.size = 0
+        self.hash_table = [None] * self.capacity
+        self.length = 0
 
-        for node in old_table:
-            if node is not None:
-                self.__setitem__(node.key, node.value)
+        for item in old_table:
+            if item is not None and item is not self._DELETED:
+                self.__setitem__(item.key, item.value)
 
     def __setitem__(self, key: K, value: V) -> None:
         """Añade un par clave-valor o actualiza si ya existe."""
-        if (self.size + 1) / self.capacity > self.load_factor:
+        if (self.length + 1) / self.capacity > self.load_factor:
             self._resize()
 
         h = hash(key)
         index = h % self.capacity
         original_index = index
+        first_deleted_index = None
 
-        while self.table[index] is not None:
-            if self.table[index].key == key:
-                self.table[index].value = value
+        while self.hash_table[index] is not None:
+            if self.hash_table[index] is self._DELETED:
+                if first_deleted_index is None:
+                    first_deleted_index = index
+            elif self.hash_table[index].key == key:
+                self.hash_table[index].value = value
                 return
             index = (index + 1) % self.capacity
             if index == original_index:
                 break
 
-        self.table[index] = Node(key, value, h)
-        self.size += 1
+        target_index = (
+            first_deleted_index if first_deleted_index is not None else index
+        )
+        if (
+            self.hash_table[target_index] is None
+            or self.hash_table[target_index] is self._DELETED
+        ):
+            if self.hash_table[target_index] is None:
+                self.length += 1
+            self.hash_table[target_index] = Node(key, value, h)
 
     def __getitem__(self, key: K) -> V:
         """Recupera el valor asociado a la clave especificada."""
@@ -74,9 +87,28 @@ class Dictionary(Generic[K, V]):
         index = h % self.capacity
         original_index = index
 
-        while self.table[index] is not None:
-            if self.table[index].key == key:
-                return self.table[index].value
+        while self.hash_table[index] is not None:
+            if self.hash_table[index] is not self._DELETED:
+                if self.hash_table[index].key == key:
+                    return self.hash_table[index].value
+            index = (index + 1) % self.capacity
+            if index == original_index:
+                break
+
+        raise KeyError(f"La clave '{key}' no existe en el diccionario.")
+
+    def __delitem__(self, key: K) -> None:
+        """Elimina una clave y su valor del diccionario."""
+        h = hash(key)
+        index = h % self.capacity
+        original_index = index
+
+        while self.hash_table[index] is not None:
+            if self.hash_table[index] is not self._DELETED:
+                if self.hash_table[index].key == key:
+                    self.hash_table[index] = self._DELETED
+                    self.length -= 1
+                    return
             index = (index + 1) % self.capacity
             if index == original_index:
                 break
