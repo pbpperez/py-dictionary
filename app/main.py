@@ -1,4 +1,4 @@
-"""Módulo de implementación de un diccionario personalizado basado en hash."""
+"""Módulo de implementación de un diccionario personalizado."""
 
 from typing import Any, Generic, List, TypeVar
 
@@ -9,7 +9,7 @@ V = TypeVar("V")
 class Node(Generic[K, V]):
     """Representa un nodo individual dentro de la tabla hash.
 
-    Almacena la clave original, el valor asociado y el código hash.
+    Almacena la clave original, el valor y el hash.
     """
 
     def __init__(self, key: K, value: V, hash_val: int) -> None:
@@ -19,11 +19,7 @@ class Node(Generic[K, V]):
 
 
 class Dictionary(Generic[K, V]):
-    """Implementación personalizada de un diccionario basado en tabla hash.
-
-    Utiliza direccionamiento abierto con sondeo lineal, capacidad inicial
-    de 8, factor de carga de 2 / 3 y redimensionamiento dinámico.
-    """
+    """Implementación personalizada de un diccionario."""
 
     def __init__(
         self, initial_capacity: int = 8, load_factor: float = 2 / 3
@@ -35,11 +31,11 @@ class Dictionary(Generic[K, V]):
         self.hash_table: List[Any] = [None] * self.capacity
 
     def __len__(self) -> int:
-        """Retorna el número de elementos almacenados."""
+        """Retorna el número de elementos."""
         return self.length
 
     def _resize(self) -> None:
-        """Duplica la capacidad de la tabla y realiza rehash."""
+        """Duplica capacidad y realiza rehash eficiente."""
         old_table = self.hash_table
         self.capacity *= 2
         self.hash_table = [None] * self.capacity
@@ -47,10 +43,17 @@ class Dictionary(Generic[K, V]):
 
         for item in old_table:
             if item is not None and item is not self._DELETED:
-                self.__setitem__(item.key, item.value)
+                index = item.hash_val % self.capacity
+                original_index = index
+                while self.hash_table[index] is not None:
+                    index = (index + 1) % self.capacity
+                    if index == original_index:
+                        break
+                self.hash_table[index] = item
+                self.length += 1
 
     def __setitem__(self, key: K, value: V) -> None:
-        """Añade un par clave-valor o actualiza si ya existe."""
+        """Añade un par clave-valor o actualiza si existe."""
         if (self.length + 1) / self.capacity > self.load_factor:
             self._resize()
 
@@ -71,18 +74,19 @@ class Dictionary(Generic[K, V]):
                 break
 
         target_index = (
-            first_deleted_index if first_deleted_index is not None else index
+            first_deleted_index
+            if first_deleted_index is not None
+            else index
         )
         if (
             self.hash_table[target_index] is None
             or self.hash_table[target_index] is self._DELETED
         ):
-            if self.hash_table[target_index] is None:
-                self.length += 1
             self.hash_table[target_index] = Node(key, value, h)
+            self.length += 1
 
     def __getitem__(self, key: K) -> V:
-        """Recupera el valor asociado a la clave especificada."""
+        """Recupera el valor asociado a la clave."""
         h = hash(key)
         index = h % self.capacity
         original_index = index
@@ -98,7 +102,7 @@ class Dictionary(Generic[K, V]):
         raise KeyError(f"La clave '{key}' no existe en el diccionario.")
 
     def __delitem__(self, key: K) -> None:
-        """Elimina una clave y su valor del diccionario."""
+        """Elimina una clave y su valor."""
         h = hash(key)
         index = h % self.capacity
         original_index = index
