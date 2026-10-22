@@ -118,3 +118,21 @@ class Dictionary(Generic[K, V]):
                 break
 
         raise KeyError(f"La clave '{key}' no existe en el diccionario.")
+
+    def get(self, key: K, default: Any = None) -> Any:
+        """Retorna el valor si la clave existe, de lo contrario default."""
+        try:
+            return self.__getitem__(key)
+        except KeyError:
+            return default
+
+    def pop(self, key: K, *args: Any) -> V:
+        """Elimina la clave y retorna su valor, o maneja default."""
+        try:
+            value = self.__getitem__(key)
+            self.__delitem__(key)
+            return value
+        except KeyError:
+            if args:
+                return args[0]
+            raise
